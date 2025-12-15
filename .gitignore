@@ -1,3 +1,4 @@
 sounds/*
 *_pack/
 *.mp3
+!sounds/hello_there__random-example.mp3
