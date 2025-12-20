@@ -1,7 +1,8 @@
 from pydub import AudioSegment
+import shutil
 import os
 from os import mkdir
-from os.path import exists, abspath
+from os.path import exists, abspath, join 
 import re
 import json
 
@@ -12,9 +13,20 @@ EXPORT_FORMAT = "ogg"
 
 SOUND_PACK_NAME = "test_pack"
 
+META_TEMPLATE_PATH = abspath(f"./pack.mcmeta")
+
 IN_PATH = abspath(f"./sounds")
 SOUND_LIST_PATH = abspath(f"./sounds_{29}.json")
-OUT_PATH = abspath(f"./{SOUND_PACK_NAME}/minecraft/sounds/")
+pack_path = abspath(f"./{SOUND_PACK_NAME}")
+pack_assets_path = join(pack_path, "assets/minecraft/")
+pack_sounds_path = join(pack_assets_path, "sounds/")
+pack_sounds_json_path = join(pack_path, "sounds.json")
+pack_metha_path = join(pack_path, "pack.mcmeta")
+
+def ensure_path_exists_to(path):
+    head = os.path.split(path)[0]
+    if not exists(head):
+        os.makedirs(head)
 
 class Sound:
     ALPHANUM = "[a-zA-Z0-9]"
@@ -54,7 +66,6 @@ if __name__ == "__main__":
                 sound_dict[p.mc_path].append(p)
             else:
                 sound_dict[p.mc_path] = [p]
-
         except ValueError as e:
             print(f"Skipping \"{entry}\" because: {e}")
 
@@ -63,11 +74,13 @@ if __name__ == "__main__":
     with open(SOUND_LIST_PATH, 'r') as f:
         mc_sound_list = json.load(f)
 
-    for p in sound_dict.keys():
+    to_remove = []
+    
+    for p in [*sound_dict.keys()]:
         l = len(sound_dict[p])
         if p not in mc_sound_list.keys():
             print(f"Skipping \"{p}\" ({l} files) because: Not a valid path to a minecaft sound.")
-            sound_dict[p] = None
+            sound_dict.pop(p)
             continue
         elif l > mc_sound_list[p]:
             l2 = mc_sound_list[p]
@@ -76,17 +89,17 @@ if __name__ == "__main__":
 
     print(f"Converting and saving sounds:")
 
-    for sounds in sound_dict.values():
+    for k, sounds in sound_dict.items():
         for i, s in enumerate(sounds):
-            export_path = os.path.join(OUT_PATH, f"{s.mc_path_slashes}{'' if len(sounds) == 1 else i+1}.{EXPORT_FORMAT}")
+            export_path = os.path.join(pack_sounds_path, f"{s.mc_path_slashes}{'' if mc_sound_list[k] == 1 else i+1}.{EXPORT_FORMAT}")
             try:
                 seg = AudioSegment.from_file(s.filepath)
             except Exception as e:
                 print(f"Skipping {s.filepath}, could not read in file: {e}")
                 continue
-            # TODO 
-            head = os.path.split(export_path)[0]
-            if not exists(head):
-                os.makedirs(head)
+            ensure_path_exists_to(export_path)
                 
             seg.export(export_path, format=EXPORT_FORMAT)
+    # add pack.mcmeta
+    ensure_path_exists_to(pack_metha_path)
+    shutil.copyfile(META_TEMPLATE_PATH, pack_metha_path)
